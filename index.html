@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>チャイム</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YcnS/1fQ4sGBaxE4vAf/5sN2pvpKcOGOGjmB" crossorigin="anonymous">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f8f9fa;
+    }
+    .chime-card {
+      max-width: 480px;
+      width: 100%;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-dot.waiting { background-color: #6c757d; }
+    .status-dot.active  { background-color: #198754; animation: pulse 1s infinite; }
+    .status-dot.done    { background-color: #0d6efd; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="chime-card card shadow-sm">
+    <div class="card-body p-4">
+      <h4 class="card-title text-center mb-4">チャイム</h4>
+
+      <div class="mb-3">
+        <label for="time-pre" class="form-label">
+          <span id="status-pre" class="status-dot waiting"></span>
+          予鈴
+        </label>
+        <input type="time" id="time-pre" class="form-control" step="1" value="08:49:00">
+      </div>
+
+      <div class="mb-4">
+        <label for="time-main" class="form-label">
+          <span id="status-main" class="status-dot waiting"></span>
+          本鈴
+        </label>
+        <input type="time" id="time-main" class="form-control" step="1" value="08:50:00">
+      </div>
+
+      <div class="d-grid gap-2">
+        <button id="btn-start" class="btn btn-primary">開始</button>
+        <button id="btn-stop" class="btn btn-outline-secondary" disabled>停止</button>
+      </div>
+
+      <div id="current-time" class="text-center text-muted mt-3 font-monospace fs-5"></div>
+    </div>
+  </div>
+
+  <audio id="audio-pre" preload="auto" src="assets/chime_pre.m4a"></audio>
+  <audio id="audio-main" preload="auto" src="assets/chime_main.m4a"></audio>
+
+  <script>
+    const timePreInput = document.getElementById('time-pre');
+    const timeMainInput = document.getElementById('time-main');
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const currentTimeEl = document.getElementById('current-time');
+    const audioPre = document.getElementById('audio-pre');
+    const audioMain = document.getElementById('audio-main');
+    const statusPre = document.getElementById('status-pre');
+    const statusMain = document.getElementById('status-main');
+
+    let timerId = null;
+    let firedPre = false;
+    let firedMain = false;
+
+    function nowHHMMSS() {
+      const now = new Date();
+      return now.toTimeString().slice(0, 8); // "HH:MM:SS"
+    }
+
+    function normalizeTime(value) {
+      if (!value) return null;
+      // input[type=time] returns "HH:MM" or "HH:MM:SS"
+      const parts = value.split(':');
+      while (parts.length < 3) parts.push('00');
+      return parts.join(':');
+    }
+
+    function updateClock() {
+      currentTimeEl.textContent = nowHHMMSS();
+    }
+
+    function tick() {
+      const now = nowHHMMSS();
+      currentTimeEl.textContent = now;
+
+      const timePre = normalizeTime(timePreInput.value);
+      const timeMain = normalizeTime(timeMainInput.value);
+
+      if (!firedPre && timePre && now >= timePre) {
+        firedPre = true;
+        audioPre.play();
+        statusPre.className = 'status-dot done';
+      }
+
+      if (!firedMain && timeMain && now >= timeMain) {
+        firedMain = true;
+        audioMain.play();
+        statusMain.className = 'status-dot done';
+      }
+
+      if (firedPre && firedMain) {
+        stop();
+      }
+    }
+
+    function start() {
+      firedPre = false;
+      firedMain = false;
+
+      const timePre = normalizeTime(timePreInput.value);
+      const timeMain = normalizeTime(timeMainInput.value);
+      const now = nowHHMMSS();
+
+      statusPre.className = 'status-dot ' + (timePre ? (now >= timePre ? 'done' : 'active') : 'waiting');
+      statusMain.className = 'status-dot ' + (timeMain ? (now >= timeMain ? 'done' : 'active') : 'waiting');
+
+      timePreInput.disabled = true;
+      timeMainInput.disabled = true;
+      btnStart.disabled = true;
+      btnStop.disabled = false;
+
+      timerId = setInterval(tick, 500);
+      tick();
+    }
+
+    function stop() {
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      timePreInput.disabled = false;
+      timeMainInput.disabled = false;
+      btnStart.disabled = false;
+      btnStop.disabled = true;
+
+      if (!firedPre) statusPre.className = 'status-dot waiting';
+      if (!firedMain) statusMain.className = 'status-dot waiting';
+    }
+
+    btnStart.addEventListener('click', start);
+    btnStop.addEventListener('click', stop);
+
+    // Keep clock always visible
+    setInterval(updateClock, 1000);
+    updateClock();
+  </script>
+</body>
+</html>
