@@ -32,6 +32,14 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
     }
+    @keyframes btn-flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; transform: scale(1.03); }
+    }
+    .btn-flash {
+      animation: btn-flash 0.8s ease-in-out infinite;
+      box-shadow: 0 0 12px rgba(13, 110, 253, 0.6);
+    }
   </style>
 </head>
 <body>
@@ -134,6 +142,7 @@
       statusPre.className = 'status-dot ' + (timePre ? (now >= timePre ? 'done' : 'active') : 'waiting');
       statusMain.className = 'status-dot ' + (timeMain ? (now >= timeMain ? 'done' : 'active') : 'waiting');
 
+      btnStart.classList.remove('btn-flash');
       timePreInput.disabled = true;
       timeMainInput.disabled = true;
       btnStart.disabled = true;
@@ -151,6 +160,7 @@
       timePreInput.disabled = false;
       timeMainInput.disabled = false;
       btnStart.disabled = false;
+      btnStart.classList.add('btn-flash');
       btnStop.disabled = true;
 
       if (!firedPre) statusPre.className = 'status-dot waiting';
@@ -163,6 +173,9 @@
     // Keep clock always visible
     setInterval(updateClock, 1000);
     updateClock();
+
+    // Flash start button until pressed
+    btnStart.classList.add('btn-flash');
   </script>
 </body>
 </html>
