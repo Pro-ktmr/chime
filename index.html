@@ -48,19 +48,13 @@
       <h4 class="card-title text-center mb-4">チャイム</h4>
 
       <div class="mb-3">
-        <label for="time-pre" class="form-label">
-          <span id="status-pre" class="status-dot waiting"></span>
-          予鈴
-        </label>
-        <input type="time" id="time-pre" class="form-control" step="1" value="08:49:00">
-      </div>
-
-      <div class="mb-4">
-        <label for="time-main" class="form-label">
-          <span id="status-main" class="status-dot waiting"></span>
-          本鈴
-        </label>
+        <label for="time-main" class="form-label">チャイム時刻</label>
         <input type="time" id="time-main" class="form-control" step="1" value="08:50:00">
+        <div class="form-text">
+          <span id="status-pre" class="status-dot waiting"></span>予鈴: 1 分前 ／
+          <span id="status-main" class="status-dot waiting"></span>本鈴: 設定時刻 ／
+          <span id="status-20min" class="status-dot waiting"></span>20 分後
+        </div>
       </div>
 
       <div class="d-grid gap-2">
@@ -74,21 +68,24 @@
 
   <audio id="audio-pre" preload="auto" src="assets/chime_pre.m4a"></audio>
   <audio id="audio-main" preload="auto" src="assets/chime_main.m4a"></audio>
+  <audio id="audio-20min" preload="auto" src="assets/chime_20min.mp3"></audio>
 
   <script>
-    const timePreInput = document.getElementById('time-pre');
     const timeMainInput = document.getElementById('time-main');
     const btnStart = document.getElementById('btn-start');
     const btnStop = document.getElementById('btn-stop');
     const currentTimeEl = document.getElementById('current-time');
     const audioPre = document.getElementById('audio-pre');
     const audioMain = document.getElementById('audio-main');
+    const audio20min = document.getElementById('audio-20min');
     const statusPre = document.getElementById('status-pre');
     const statusMain = document.getElementById('status-main');
+    const status20min = document.getElementById('status-20min');
 
     let timerId = null;
     let firedPre = false;
     let firedMain = false;
+    let fired20min = false;
 
     function nowHHMMSS() {
       const now = new Date();
@@ -97,10 +94,19 @@
 
     function normalizeTime(value) {
       if (!value) return null;
-      // input[type=time] returns "HH:MM" or "HH:MM:SS"
-      const parts = value.split(':');
-      while (parts.length < 3) parts.push('00');
-      return parts.join(':');
+      const parts = value.split(':').map(Number);
+      while (parts.length < 3) parts.push(0);
+      return parts.map(p => String(p).padStart(2, '0')).join(':');
+    }
+
+    function addSeconds(hhmmss, sec) {
+      const parts = hhmmss.split(':').map(Number);
+      let total = parts[0] * 3600 + parts[1] * 60 + parts[2] + sec;
+      total = ((total % 86400) + 86400) % 86400;
+      const h = String(Math.floor(total / 3600)).padStart(2, '0');
+      const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+      const s = String(total % 60).padStart(2, '0');
+      return h + ':' + m + ':' + s;
     }
 
     function updateClock() {
@@ -111,8 +117,9 @@
       const now = nowHHMMSS();
       currentTimeEl.textContent = now;
 
-      const timePre = normalizeTime(timePreInput.value);
       const timeMain = normalizeTime(timeMainInput.value);
+      const timePre = timeMain ? addSeconds(timeMain, -60) : null;
+      const time20min = timeMain ? addSeconds(timeMain, 20 * 60) : null;
 
       if (!firedPre && timePre && now >= timePre) {
         firedPre = true;
@@ -126,7 +133,13 @@
         statusMain.className = 'status-dot done';
       }
 
-      if (firedPre && firedMain) {
+      if (!fired20min && time20min && now >= time20min) {
+        fired20min = true;
+        audio20min.play();
+        status20min.className = 'status-dot done';
+      }
+
+      if (firedPre && firedMain && fired20min) {
         stop();
       }
     }
@@ -134,16 +147,18 @@
     function start() {
       firedPre = false;
       firedMain = false;
+      fired20min = false;
 
-      const timePre = normalizeTime(timePreInput.value);
       const timeMain = normalizeTime(timeMainInput.value);
+      const timePre = timeMain ? addSeconds(timeMain, -60) : null;
+      const time20min = timeMain ? addSeconds(timeMain, 20 * 60) : null;
       const now = nowHHMMSS();
 
       statusPre.className = 'status-dot ' + (timePre ? (now >= timePre ? 'done' : 'active') : 'waiting');
       statusMain.className = 'status-dot ' + (timeMain ? (now >= timeMain ? 'done' : 'active') : 'waiting');
+      status20min.className = 'status-dot ' + (time20min ? (now >= time20min ? 'done' : 'active') : 'waiting');
 
       btnStart.classList.remove('btn-flash');
-      timePreInput.disabled = true;
       timeMainInput.disabled = true;
       btnStart.disabled = true;
       btnStop.disabled = false;
@@ -157,7 +172,6 @@
         clearInterval(timerId);
         timerId = null;
       }
-      timePreInput.disabled = false;
       timeMainInput.disabled = false;
       btnStart.disabled = false;
       btnStart.classList.add('btn-flash');
@@ -165,6 +179,7 @@
 
       if (!firedPre) statusPre.className = 'status-dot waiting';
       if (!firedMain) statusMain.className = 'status-dot waiting';
+      if (!fired20min) status20min.className = 'status-dot waiting';
     }
 
     btnStart.addEventListener('click', start);
